@@ -23,13 +23,11 @@ npm run dev
 
 ### Environment
 
-`.env` is gitignored. Create one with:
-
-```
-DATABASE_URL="file:./dev.db"
+```bash
+cp .env.example .env
 ```
 
-`SESSION_SECRET` is optional and falls back to a hardcoded dev value. See [Known limitations](#known-limitations).
+`DATABASE_URL` is all that is needed for local development. `SESSION_SECRET` is optional in development and **required in production** — [`lib/session.ts`](lib/session.ts) throws when `NODE_ENV=production` and it is unset, rather than falling back to a value that is public in this repo.
 
 ### Seeded data
 
@@ -94,20 +92,33 @@ This reflects two things the brief asks about:
 
 Session cookies are HMAC-signed, so a client cannot edit `firmId` in the payload without invalidating the signature.
 
+### What `proxy.ts` is not
+
+[`proxy.ts`](proxy.ts) redirects anonymous requests to `/login`, and it is **not** the security boundary. It checks only that a cookie is present — not that its signature is valid, and not which firm it belongs to. Next.js's own authentication guide is explicit that proxy-level checks must stay optimistic, because the proxy runs on every route including prefetches.
+
+Deleting `proxy.ts` entirely would make the app less pleasant to use and no less secure: every page still calls the DAL, which re-reads and verifies the session on every query. The redirect is convenience; the query scope is the control.
+
+This was confirmed by temporarily removing the file. With no proxy at all, an anonymous request to `/clients` and a request carrying a cookie with a hand-edited `firmId` both still redirect to `/login` — `requireSession()` in the DAL rejects them.
+
 ### Verifying tenant isolation
 
 ```bash
 npm run check:isolation
 ```
 
-Four assertions against seeded data — three of them negative:
-
 ```
 PASS  ABC reads its own client
 PASS  XYZ cannot read ABC's client by id
 PASS  XYZ cannot read ABC's document by id
 PASS  XYZ's client list excludes ABC's clients
+PASS  an undefined firmId would leak across firms (guarded in session.ts)
+PASS  no route handlers in app/
 ```
+
+The last two guard specific failure modes rather than restating the rule:
+
+- **`firmId: undefined` is not a narrow filter, it is no filter.** Prisma drops the condition and returns every firm's rows — verified against the seeded data, where it returned all three clients across both firms. A signed cookie whose payload no longer matches the expected shape would produce exactly that, so `verify()` validates the shape and returns `null` instead.
+- **No route handlers exist.** All database access goes through Server Components and Server Actions. A stray debugging endpoint — the kind that mints a session or returns unscoped data — is caught by name here.
 
 Exits non-zero on failure. The check was validated by deliberately removing a `firmId` scope and confirming it flips to `FAIL` — a check that cannot fail proves nothing.
 
@@ -131,8 +142,9 @@ Leaving these out is the point. A small working product beats a large unfinished
 
 ## Known limitations
 
-- `SESSION_SECRET` falls back to a hardcoded dev value, so seeded sessions are forgeable in a deployment that does not set it. Acceptable for an evaluation prototype; a real deployment would fail closed on a missing secret.
 - Login is a pick-from-list of seeded users. There are no passwords, by design — the brief excludes production authentication, and the marks are on authorization.
+- Sessions are signed but not encrypted, so the payload is readable by the client. It carries no secrets, and it cannot be edited without invalidating the signature.
+- Sessions do not expire. A real deployment would set a `maxAge` and rotate.
 - SQLite is single-writer. Fine for a prototype, not for concurrent firms in production.
 
 ## Tech

@@ -4,12 +4,22 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 
 const COOKIE = "session";
-const SECRET = process.env.SESSION_SECRET ?? "dev-only-insecure-secret";
+
+// Fail closed in production: a missing secret there would silently fall back
+// to a value that is public in this repo, making every session forgeable.
+function secret() {
+  const fromEnv = process.env.SESSION_SECRET;
+  if (fromEnv) return fromEnv;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET must be set in production");
+  }
+  return "dev-only-insecure-secret";
+}
 
 export type Session = { userId: string; firmId: string; role: "STAFF" | "REVIEWER" };
 
 function sign(payload: string) {
-  return createHmac("sha256", SECRET).update(payload).digest("base64url");
+  return createHmac("sha256", secret()).update(payload).digest("base64url");
 }
 
 // Signed, not encrypted: the payload is readable, but a client cannot forge a
@@ -27,7 +37,15 @@ function verify(cookie: string): Session | null {
   const actual = Buffer.from(mac);
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
 
-  return JSON.parse(Buffer.from(payload, "base64url").toString());
+  // A valid signature still does not guarantee a well-formed payload: an old
+  // cookie from a changed schema would parse but leave firmId undefined, which
+  // would then reach a query as `where: { firmId: undefined }`.
+  const parsed = JSON.parse(Buffer.from(payload, "base64url").toString());
+  const valid =
+    typeof parsed?.userId === "string" &&
+    typeof parsed?.firmId === "string" &&
+    (parsed?.role === "STAFF" || parsed?.role === "REVIEWER");
+  return valid ? parsed : null;
 }
 
 export const COOKIE_NAME = COOKIE;

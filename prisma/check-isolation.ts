@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { PrismaClient } from "../lib/generated/prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 
@@ -14,6 +16,14 @@ let failures = 0;
 function check(name: string, pass: boolean) {
   console.log(`${pass ? "PASS" : "FAIL"}  ${name}`);
   if (!pass) failures++;
+}
+
+function routeFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const path = join(dir, entry);
+    if (statSync(path).isDirectory()) return routeFiles(path);
+    return entry === "route.ts" || entry === "route.tsx" ? [path] : [];
+  });
 }
 
 async function main() {
@@ -50,6 +60,25 @@ async function main() {
     (await prisma.client.findMany({ where: { firmId: xyz.id } })).every(
       (c) => c.firmId === xyz.id,
     ),
+  );
+
+  // An undefined firmId is not a narrow filter, it is no filter: Prisma drops
+  // the condition and returns every firm's rows. lib/session.ts rejects a
+  // malformed payload so undefined can never reach a query, and this records
+  // why that check exists.
+  check(
+    "an undefined firmId would leak across firms (guarded in session.ts)",
+    (await prisma.client.findMany({ where: { firmId: undefined } })).length >
+      (await prisma.client.findMany({ where: { firmId: xyz.id } })).length,
+  );
+
+  // No route handlers: this app talks to the database through Server
+  // Components and Server Actions only. A stray debug endpoint that mints
+  // sessions or reads unscoped data would show up here.
+  const routes = routeFiles("app");
+  check(
+    routes.length === 0 ? "no route handlers in app/" : `unexpected route handlers: ${routes}`,
+    routes.length === 0,
   );
 
   console.log(failures === 0 ? "\nAll isolation checks passed." : `\n${failures} failed.`);
