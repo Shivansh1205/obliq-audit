@@ -1,13 +1,105 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../lib/generated/prisma"
+  provider     = "prisma-client"
+  output       = "../lib/generated/prisma"
+  // The project is CommonJS (no "type": "module"); the default ESM output
+  // leaves model accessors undefined when tsx loads the seed script as CJS.
+  moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "sqlite"
+}
+
+// Tenant root. Every firm-scoped row carries firmId so a query can be
+// constrained by it directly, without a join through the parent.
+model Firm {
+  id      String   @id @default(cuid())
+  name    String
+  users   User[]
+  clients Client[]
+  events  AuditEvent[]
+}
+
+model User {
+  id     String @id @default(cuid())
+  firmId String
+  name   String
+  role   Role
+
+  firm            Firm         @relation(fields: [firmId], references: [id])
+  uploads         Document[]   @relation("uploader")
+  events          AuditEvent[]
+
+  @@index([firmId])
+}
+
+enum Role {
+  STAFF
+  REVIEWER
+}
+
+model Client {
+  id     String @id @default(cuid())
+  firmId String
+  name   String
+
+  firm      Firm       @relation(fields: [firmId], references: [id])
+  documents Document[]
+
+  @@index([firmId])
+}
+
+model Document {
+  id       String         @id @default(cuid())
+  clientId String
+  name     String
+  status   DocumentStatus @default(PENDING)
+
+  // Set on upload. Null while the document is still PENDING.
+  fileName     String?
+  uploadedById String?
+  uploadedAt   DateTime?
+
+  // Latest reviewer comment. Carries the reason while CORRECTION_REQUIRED.
+  reviewComment String?
+
+  client     Client       @relation(fields: [clientId], references: [id])
+  uploadedBy User?        @relation("uploader", fields: [uploadedById], references: [id])
+  events     AuditEvent[]
+
+  @@index([clientId])
+}
+
+enum DocumentStatus {
+  PENDING
+  UPLOADED
+  UNDER_REVIEW
+  APPROVED
+  CORRECTION_REQUIRED
+}
+
+// Append-only. Nothing in the codebase updates or deletes an event.
+model AuditEvent {
+  id         String      @id @default(cuid())
+  firmId     String
+  actorId    String
+  documentId String
+  action     AuditAction
+  reason     String?
+  createdAt  DateTime    @default(now())
+
+  firm     Firm     @relation(fields: [firmId], references: [id])
+  actor    User     @relation(fields: [actorId], references: [id])
+  document Document @relation(fields: [documentId], references: [id])
+
+  @@index([firmId, createdAt])
+  @@index([documentId, createdAt])
+}
+
+enum AuditAction {
+  UPLOADED
+  REVIEW_STARTED
+  CORRECTION_REQUESTED
+  APPROVED
+  REUPLOADED
 }
