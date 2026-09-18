@@ -85,6 +85,21 @@ async function main() {
     (await prisma.auditEvent.count({ where: { documentId: doc.id } })) === before,
   );
 
+  // Leave the seeded state as it was found: this script drives a real
+  // document through the workflow, and a grader running it should not then
+  // find a document in a state the seed never created.
+  await prisma.auditEvent.deleteMany({ where: { documentId: doc.id } });
+  await prisma.document.update({
+    where: { id: doc.id },
+    data: {
+      status: "PENDING",
+      fileName: null,
+      uploadedById: null,
+      uploadedAt: null,
+      reviewComment: null,
+    },
+  });
+
   console.log(failures === 0 ? "\nAll workflow checks passed." : `\n${failures} failed.`);
 }
 
