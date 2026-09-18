@@ -6,7 +6,7 @@ A prototype for OBLIQ-in's audit workflow evaluation. Documents move through rev
 Client → Documents → Review → Approve / Request Correction → Audit History
 ```
 
-> **Status: in progress.** The data layer, tenant isolation, and audit schema are complete and verifiable (see [Verifying tenant isolation](#verifying-tenant-isolation)). The UI is not built yet, so `npm run dev` currently serves the starter page. Build order and rationale are in [PLAN.md](PLAN.md).
+> **Status: in progress.** Login, client lists, and document detail work end to end, and tenant isolation is enforced and verifiable (see [Verifying tenant isolation](#verifying-tenant-isolation)). Still to come: upload, the review actions (approve / request correction), and the audit history timeline. Build order and rationale are in [PLAN.md](PLAN.md).
 
 ## Setup
 
@@ -110,6 +110,16 @@ PASS  XYZ's client list excludes ABC's clients
 ```
 
 Exits non-zero on failure. The check was validated by deliberately removing a `firmId` scope and confirming it flips to `FAIL` — a check that cannot fail proves nothing.
+
+The same boundary was confirmed through the running app over HTTP:
+
+| Request | Rohit (ABC & Co.) | Priya (XYZ & Co.) |
+|---|---|---|
+| `/clients` | ABC Traders, Sunrise Foods | Meridian Textiles |
+| `/clients/<ABC client id>` | `200` | `404` |
+| `/documents/<ABC document id>` | `200` | `404` |
+
+A session cookie with a hand-edited `firmId` fails the signature check and is redirected to `/login`.
 
 ## Scope
 
