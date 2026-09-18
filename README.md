@@ -6,7 +6,19 @@ A prototype for OBLIQ-in's audit workflow evaluation. Documents move through rev
 Client → Documents → Review → Approve / Request Correction → Audit History
 ```
 
-> **Status: in progress.** Login, client lists, and document detail work end to end, and tenant isolation is enforced and verifiable (see [Verifying tenant isolation](#verifying-tenant-isolation)). Still to come: upload, the review actions (approve / request correction), and the audit history timeline. Build order and rationale are in [PLAN.md](PLAN.md).
+> **Status: the core workflow is complete and clickable.** Sign in, open a client, upload a document, review it, request a correction or approve it, and watch the audit history record every step. Remaining: the final README write-up and screenshots. Build order and rationale are in [PLAN.md](PLAN.md).
+
+## Try it
+
+```bash
+npm install && npx prisma migrate dev && npm run seed && npm run dev
+```
+
+Sign in as **Rohit** (staff, ABC & Co.) and open *ABC Traders Pvt. Ltd. → Sales Register*: it is `Pending`, so you get an upload box. Upload, then sign out and return as **Aman** (reviewer, same firm) to start the review, request a correction, and approve. Every step appears on the document's timeline.
+
+*Bank Statement* is seeded with the brief's worked example already played out, so the audit history is populated before you touch anything.
+
+To see the tenant boundary: copy any ABC & Co. URL, sign out, sign in as **Priya** (XYZ & Co.), and paste it. You get a 404 — same id, different firm, no matching row.
 
 ## Setup
 
@@ -67,6 +79,45 @@ One Next.js app rather than a separate SPA and API: no CORS, no second process, 
 Status flow: `PENDING → UPLOADED → UNDER_REVIEW → APPROVED`, with `CORRECTION_REQUIRED` looping back to `UPLOADED`.
 
 `firmId` sits on every firm-scoped table rather than being reached through a join, so any query can be constrained directly.
+
+### The audit trail
+
+[`lib/audit.ts`](lib/audit.ts) is the only path that changes a document. The status update and its audit event are written in **one interactive transaction**, so a state change cannot exist without the event that explains it:
+
+```ts
+return prisma.$transaction(async (tx) => {
+  await tx.document.update({ ... });
+  await tx.auditEvent.create({ ... });
+});
+```
+
+The document is re-read *inside* the transaction with a firm-scoped filter, so a caller from another firm updates zero rows and errors, rather than silently no-opping.
+
+**Immutability, precisely.** Events are append-only *by construction*: no code path updates or deletes one, and no UI reaches them. This is a prototype claim, not a cryptographic one — a database user with direct access could still edit the table. A production system would add append-only grants or hash chaining.
+
+```bash
+npm run check:workflow
+```
+
+```
+PASS  every transition produced an event
+PASS  events record who acted
+PASS  correction carries its reason
+PASS  document ends approved
+PASS  a rolled-back change leaves no orphan event
+```
+
+The last assertion is the important one: it forces a failure mid-transaction and confirms no orphan event survives.
+
+### Roles
+
+| | Staff | Reviewer |
+|---|---|---|
+| Upload / re-upload | ✅ | |
+| Start review, approve, request correction | | ✅ |
+| View documents and audit history | ✅ | ✅ |
+
+Role is enforced in the Server Action, which throws before touching the database. The UI hides controls that do not apply to the current role and status, but that is presentation only — the action refuses regardless of what the client sends.
 
 ## How Firm A stays isolated from Firm B
 
