@@ -143,3 +143,119 @@ h2 {
   color: var(--accent);
   border-color: var(--accent);
 }
+
+.details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin: 0;
+}
+
+.details div {
+  margin: 0;
+}
+
+.details dt {
+  font-size: 0.8rem;
+}
+
+.details dd {
+  margin: 2px 0 0;
+}
+
+.note p {
+  margin: 6px 0 0;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 20px;
+  border-left: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.timeline li {
+  position: relative;
+}
+
+/* Dot sits on the rail: 20px padding + 2px border, centred on the line. */
+.timeline li::before {
+  content: "";
+  position: absolute;
+  left: -27px;
+  top: 6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.timeline time {
+  font-size: 0.8rem;
+}
+
+.timeline p {
+  margin: 2px 0 0;
+}
+
+.timeline .reason {
+  color: var(--muted);
+  font-size: 0.9rem;
+  border-left: 2px solid var(--border);
+  padding-left: 10px;
+  margin-top: 6px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.actions .stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 320px;
+}
+
+.actions label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.actions input,
+.actions textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.actions button {
+  padding: 9px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.actions button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.actions button:hover {
+  opacity: 0.9;
+}

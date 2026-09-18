@@ -41,6 +41,50 @@ async function seedFirm(
   return firm;
 }
 
+// Replays the worked example from the brief on one document, so the audit
+// history is populated on a fresh checkout.
+async function seedHistory(firmName: string, clientName: string) {
+  const [staff, reviewer] = await Promise.all([
+    prisma.user.findFirstOrThrow({ where: { role: "STAFF", firm: { name: firmName } } }),
+    prisma.user.findFirstOrThrow({ where: { role: "REVIEWER", firm: { name: firmName } } }),
+  ]);
+  const doc = await prisma.document.findFirstOrThrow({
+    where: { name: "Bank Statement", client: { name: clientName } },
+    include: { client: true },
+  });
+
+  const at = (minutes: number) => new Date(Date.now() - (90 - minutes) * 60_000);
+  const firmId = doc.client.firmId;
+
+  const steps = [
+    { actorId: staff.id, action: "UPLOADED" as const, reason: null, createdAt: at(0) },
+    { actorId: reviewer.id, action: "REVIEW_STARTED" as const, reason: null, createdAt: at(11) },
+    {
+      actorId: reviewer.id,
+      action: "CORRECTION_REQUESTED" as const,
+      reason: "Page 3 is missing. Please upload the complete bank statement.",
+      createdAt: at(14),
+    },
+    { actorId: staff.id, action: "REUPLOADED" as const, reason: null, createdAt: at(45) },
+    { actorId: reviewer.id, action: "APPROVED" as const, reason: null, createdAt: at(52) },
+  ];
+
+  await prisma.auditEvent.createMany({
+    data: steps.map((step) => ({ ...step, firmId, documentId: doc.id })),
+  });
+
+  await prisma.document.update({
+    where: { id: doc.id },
+    data: {
+      status: "APPROVED",
+      fileName: "Bank_Statement.pdf",
+      uploadedById: staff.id,
+      uploadedAt: at(45),
+      reviewComment: "Page 3 is missing. Please upload the complete bank statement.",
+    },
+  });
+}
+
 async function main() {
   // Order matters: children before parents.
   await prisma.auditEvent.deleteMany();
@@ -51,6 +95,8 @@ async function main() {
 
   await seedFirm("ABC & Co.", "Rohit", "Aman", ["ABC Traders Pvt. Ltd.", "Sunrise Foods"]);
   await seedFirm("XYZ & Co.", "Priya", "Karan", ["Meridian Textiles"]);
+
+  await seedHistory("ABC & Co.", "ABC Traders Pvt. Ltd.");
 
   const firms = await prisma.firm.findMany({ include: { users: true, clients: true } });
   for (const firm of firms) {

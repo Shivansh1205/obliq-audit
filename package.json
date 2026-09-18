@@ -8,7 +8,8 @@
     "start": "next start",
     "postinstall": "prisma generate",
     "seed": "tsx prisma/seed.ts",
-    "check:isolation": "tsx prisma/check-isolation.ts"
+    "check:isolation": "tsx prisma/check-isolation.ts",
+    "check:workflow": "tsx prisma/check-workflow.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.0",
