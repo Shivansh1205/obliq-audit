@@ -13,44 +13,36 @@ export function Controls({
   role: Role;
 }) {
   if (role === "STAFF") {
-    const needsUpload = status === "PENDING" || status === "CORRECTION_REQUIRED";
-    if (!needsUpload) return null;
-
+    if (status === "PENDING" || status === "CORRECTION_REQUIRED") {
+      const isRevision = status === "CORRECTION_REQUIRED";
+      return (
+        <form action={upload.bind(null, documentId)} className="card actions">
+          <div className="stack">
+            <label htmlFor="fileName">
+              {isRevision ? "Upload a revised file" : "Upload a file"}
+            </label>
+            <input id="fileName" name="fileName" placeholder="Bank_Statement.pdf" required />
+          </div>
+          <input type="hidden" name="isRevision" value={String(isRevision)} />
+          <button type="submit" className="primary">
+            {isRevision ? "Upload revision" : "Upload"}
+          </button>
+        </form>
+      );
+    }
     return (
-      <form action={upload.bind(null, documentId)} className="card actions">
-        <label htmlFor="fileName">
-          {status === "CORRECTION_REQUIRED" ? "Upload a revised file" : "Upload a file"}
-        </label>
-        <input
-          id="fileName"
-          name="fileName"
-          placeholder="Bank_Statement.pdf"
-          required
-          defaultValue=""
-        />
-        <input
-          type="hidden"
-          name="isRevision"
-          value={String(status === "CORRECTION_REQUIRED")}
-        />
-        <button type="submit" className="primary">
-          Upload
-        </button>
-      </form>
+      <p className="muted empty">
+        {status === "APPROVED"
+          ? "Approved. Nothing further needed."
+          : "With the reviewer — nothing for you to do right now."}
+      </p>
     );
   }
 
-  if (status === "UPLOADED") {
-    return (
-      <form action={startReview.bind(null, documentId)} className="card actions">
-        <button type="submit" className="primary">
-          Start review
-        </button>
-      </form>
-    );
-  }
-
-  if (status === "UNDER_REVIEW") {
+  // Reviewer. Approve and Request correction are both available as soon as a
+  // document is uploaded: requiring "Start review" first would make the most
+  // common action take two clicks.
+  if (status === "UPLOADED" || status === "UNDER_REVIEW") {
     return (
       <div className="card actions">
         <form action={requestCorrection.bind(null, documentId)} className="stack">
@@ -64,14 +56,27 @@ export function Controls({
           />
           <button type="submit">Request correction</button>
         </form>
-        <form action={approve.bind(null, documentId)}>
-          <button type="submit" className="primary">
-            Approve
-          </button>
-        </form>
+        <div className="stack-right">
+          {status === "UPLOADED" && (
+            <form action={startReview.bind(null, documentId)}>
+              <button type="submit">Mark under review</button>
+            </form>
+          )}
+          <form action={approve.bind(null, documentId)}>
+            <button type="submit" className="primary">
+              Approve
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
 
-  return null;
+  return (
+    <p className="muted empty">
+      {status === "APPROVED"
+        ? "You approved this document."
+        : "Waiting on the client to upload a revised file."}
+    </p>
+  );
 }

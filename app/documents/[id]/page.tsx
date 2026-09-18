@@ -14,7 +14,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
 
   return (
     <main className="page">
-      <Link href={`/clients/${doc.clientId}`} className="muted">
+      <Link href={`/clients/${doc.clientId}`} replace className="muted back">
         ← {doc.client.name}
       </Link>
 

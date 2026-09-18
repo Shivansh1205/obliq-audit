@@ -13,7 +13,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
   return (
     <main className="page">
-      <Link href="/clients" className="muted">
+      <Link href="/clients" replace className="muted back">
         ← Clients
       </Link>
       <h1>{client.name}</h1>
