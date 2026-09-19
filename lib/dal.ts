@@ -17,23 +17,32 @@ export const requireSession = cache(async (): Promise<Session> => {
   return session;
 });
 
+// Staff see only their assigned clients; reviewers see the whole firm. This
+// narrows within a firm — it never widens across one, because firmId is
+// still applied alongside it.
+export function visibleTo(session: Session) {
+  return session.role === "STAFF"
+    ? { firmId: session.firmId, assignees: { some: { id: session.userId } } }
+    : { firmId: session.firmId };
+}
+
 export async function listClients() {
-  const { firmId } = await requireSession();
-  return prisma.client.findMany({ where: { firmId }, orderBy: { name: "asc" } });
+  const session = await requireSession();
+  return prisma.client.findMany({ where: visibleTo(session), orderBy: { name: "asc" } });
 }
 
 export async function getClient(clientId: string) {
-  const { firmId } = await requireSession();
+  const session = await requireSession();
   return prisma.client.findFirst({
-    where: { id: clientId, firmId },
+    where: { id: clientId, ...visibleTo(session) },
     include: { documents: { orderBy: { name: "asc" } } },
   });
 }
 
 export async function getDocument(documentId: string) {
-  const { firmId } = await requireSession();
+  const session = await requireSession();
   return prisma.document.findFirst({
-    where: { id: documentId, client: { firmId } },
+    where: { id: documentId, client: visibleTo(session) },
     include: { client: true, uploadedBy: true },
   });
 }

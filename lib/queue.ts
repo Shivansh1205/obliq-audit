@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "./db";
-import { requireSession } from "./dal";
+import { requireSession, visibleTo } from "./dal";
 import type { DocumentStatus } from "./generated/prisma/enums";
 
 // What each role is expected to act on next. Staff chase their own
@@ -15,7 +15,7 @@ export async function listActionable() {
   const session = await requireSession();
   return prisma.document.findMany({
     where: {
-      client: { firmId: session.firmId },
+      client: visibleTo(session),
       status: { in: NEEDS_ACTION[session.role] },
     },
     include: { client: true },

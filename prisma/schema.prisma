@@ -29,6 +29,7 @@ model User {
   firm            Firm         @relation(fields: [firmId], references: [id])
   uploads         Document[]   @relation("uploader")
   events          AuditEvent[]
+  assignedClients Client[]     @relation("assignment")
 
   @@index([firmId])
 }
@@ -45,6 +46,9 @@ model Client {
 
   firm      Firm       @relation(fields: [firmId], references: [id])
   documents Document[]
+  // Staff see only the clients assigned to them. Reviewers see the whole
+  // firm, so this relation is empty for them.
+  assignees User[]     @relation("assignment")
 
   @@index([firmId])
 }

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "./db";
-import { requireSession } from "./dal";
+import { requireSession, visibleTo } from "./dal";
 import type { AuditAction, DocumentStatus } from "./generated/prisma/enums";
 
 type Change = {
@@ -26,7 +26,7 @@ export async function applyChange(change: Change) {
 
   return prisma.$transaction(async (tx) => {
     const document = await tx.document.findFirst({
-      where: { id: change.documentId, client: { firmId: session.firmId } },
+      where: { id: change.documentId, client: visibleTo(session) },
       select: { id: true },
     });
     if (!document) throw new Error("Document not found in this firm");

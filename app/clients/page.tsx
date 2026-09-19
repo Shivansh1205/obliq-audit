@@ -4,6 +4,7 @@ import { listActionable } from "@/lib/queue";
 import { prisma } from "@/lib/db";
 import { STATUS_LABEL } from "@/lib/status";
 import { logout } from "../login/actions";
+import { createClient } from "./actions";
 
 export default async function ClientsPage() {
   const session = await requireSession();
@@ -57,16 +58,30 @@ export default async function ClientsPage() {
         </ul>
       )}
 
-      <h2>All clients</h2>
-      <ul className="list">
-        {clients.map((client) => (
-          <li key={client.id}>
-            <Link href={`/clients/${client.id}`} className="row-button">
-              {client.name}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <h2>{isReviewer ? "All clients" : "Your clients"}</h2>
+      {clients.length === 0 ? (
+        <p className="muted empty">No clients yet. Add one below.</p>
+      ) : (
+        <ul className="list">
+          {clients.map((client) => (
+            <li key={client.id}>
+              <Link href={`/clients/${client.id}`} className="row-button">
+                {client.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form action={createClient} className="card actions">
+        <div className="stack">
+          <label htmlFor="name">Add a client</label>
+          <input id="name" name="name" placeholder="ABC Traders Pvt. Ltd." required />
+        </div>
+        <button type="submit" className="primary">
+          Add client
+        </button>
+      </form>
     </main>
   );
 }

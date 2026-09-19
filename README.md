@@ -14,7 +14,9 @@ Client → Documents → Review → Approve / Request Correction → Audit Histo
 npm install && npx prisma migrate dev && npm run seed && npm run dev
 ```
 
-Sign in as **Rohit** (staff, ABC & Co.) and open *ABC Traders Pvt. Ltd. → Sales Register*: it is `Pending`, so you get an upload box. Upload, then sign out and return as **Aman** (reviewer, same firm) to start the review, request a correction, and approve. Every step appears on the document's timeline.
+Sign in as **Rohit** (staff, ABC & Co.). He lands on *Needs your upload* — the documents waiting on him across his assigned clients. Open *Sales Register*, upload a file, then sign out and return as **Aman** (reviewer, same firm): it is now in his *Waiting for your review* queue. Request a correction, sign back in as Rohit to re-upload, then approve it as Aman. Every step appears on the document's timeline.
+
+Note that Rohit sees one client and Aman sees two — staff see only what is assigned to them.
 
 *Bank Statement* is seeded with the brief's worked example already played out, so the audit history is populated before you touch anything.
 
@@ -45,10 +47,12 @@ cp .env.example .env
 
 | Firm | Staff | Reviewer | Clients |
 |---|---|---|---|
-| ABC & Co. | Rohit | Aman | ABC Traders Pvt. Ltd., Sunrise Foods |
-| XYZ & Co. | Priya | Karan | Meridian Textiles |
+| ABC & Co. | Rohit | Aman | ABC Traders Pvt. Ltd. *(assigned to Rohit)*, Sunrise Foods |
+| XYZ & Co. | Priya | Karan | Meridian Textiles *(assigned to Priya)* |
 
 Each client gets the five required documents (Bank Statement, Sales Register, Purchase Register, GST Return, Expense Summary) at status `PENDING`.
+
+Rohit is deliberately assigned to only one of ABC & Co.'s two clients, so the difference between *assigned to you* and *in your firm* is visible: he sees one client, Aman sees both.
 
 ## Architecture
 
@@ -113,9 +117,16 @@ The last assertion is the important one: it forces a failure mid-transaction and
 
 | | Staff | Reviewer |
 |---|---|---|
+| See **assigned** clients only | ✅ | |
+| See every client in the firm | | ✅ |
+| Create a client | ✅ | ✅ |
 | Upload / re-upload | ✅ | |
 | Start review, approve, request correction | | ✅ |
 | View documents and audit history | ✅ | ✅ |
+
+Assignment narrows *within* a firm and is applied alongside `firmId`, never instead of it — a staff member assigned to a client in another firm still could not see it. Both properties are asserted in `check:isolation`.
+
+Creating a client takes `firmId` from the session and assigns the creator, so a staff member does not immediately lose sight of what they just made.
 
 Role is enforced in the Server Action, which throws before touching the database. The UI hides controls that do not apply to the current role and status, but that is presentation only — the action refuses regardless of what the client sends.
 
@@ -163,6 +174,8 @@ PASS  XYZ cannot read ABC's client by id
 PASS  XYZ cannot read ABC's document by id
 PASS  XYZ's client list excludes ABC's clients
 PASS  an undefined firmId would leak across firms (guarded in session.ts)
+PASS  staff see fewer clients than their firm has
+PASS  staff cannot read an unassigned client in their own firm
 PASS  no route handlers in app/
 ```
 

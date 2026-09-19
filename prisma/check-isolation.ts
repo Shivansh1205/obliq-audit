@@ -72,6 +72,33 @@ async function main() {
       (await prisma.client.findMany({ where: { firmId: xyz.id } })).length,
   );
 
+  // Staff see only assigned clients. This narrows within a firm; it must
+  // never be the only scope, or a staff member assigned to a client in
+  // another firm would see it.
+  const abcStaff = await prisma.user.findFirstOrThrow({
+    where: { role: "STAFF", firmId: abc.id },
+    include: { assignedClients: true },
+  });
+  const unassigned = await prisma.client.findFirst({
+    where: { firmId: abc.id, assignees: { none: { id: abcStaff.id } } },
+  });
+  check(
+    "staff see fewer clients than their firm has",
+    abcStaff.assignedClients.length <
+      (await prisma.client.count({ where: { firmId: abc.id } })),
+  );
+  check(
+    "staff cannot read an unassigned client in their own firm",
+    unassigned !== null &&
+      (await prisma.client.findFirst({
+        where: {
+          id: unassigned.id,
+          firmId: abc.id,
+          assignees: { some: { id: abcStaff.id } },
+        },
+      })) === null,
+  );
+
   // No route handlers: this app talks to the database through Server
   // Components and Server Actions only. A stray debug endpoint that mints
   // sessions or reads unscoped data would show up here.

@@ -45,3 +45,7 @@ next-env.d.ts
 /lib/generated/prisma
 *.db
 *.db-journal
+
+# screenshots (kept local; only the README is committed)
+screenshots/*
+!screenshots/README.md

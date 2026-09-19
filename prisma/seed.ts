@@ -37,7 +37,18 @@ async function seedFirm(
         })),
       },
     },
+    include: { users: true, clients: true },
   });
+
+  // Assign the staff member to every client except the last, so the
+  // difference between "assigned to you" and "in your firm" is visible.
+  const staffUser = firm.users.find((u) => u.role === "STAFF")!;
+  const assigned = firm.clients.length > 1 ? firm.clients.slice(0, -1) : firm.clients;
+  await prisma.user.update({
+    where: { id: staffUser.id },
+    data: { assignedClients: { connect: assigned.map((c) => ({ id: c.id })) } },
+  });
+
   return firm;
 }
 
