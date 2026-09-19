@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/db";
 import { login } from "./actions";
 
+// Read at request time, not build time: the seeded users are database state,
+// and prerendering would bake one snapshot of them into the deployment.
+export const dynamic = "force-dynamic";
+
 // Not firm-scoped by design: this is the pick-a-user screen that exists
 // because the prototype has no passwords. Every other read goes through
 // lib/dal.ts and is scoped to the session's firm.
