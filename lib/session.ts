@@ -11,7 +11,13 @@ function secret() {
   const fromEnv = process.env.SESSION_SECRET;
   if (fromEnv) return fromEnv;
   if (process.env.NODE_ENV === "production") {
-    throw new Error("SESSION_SECRET must be set in production");
+    // Deliberately fatal: signing with the fallback below would make every
+    // session forgeable, and the value is public in this repo. The message
+    // is what surfaces in the deployment log.
+    throw new Error(
+      "SESSION_SECRET is not set. Add it to the deployment environment and redeploy — " +
+        "sessions cannot be signed safely without it.",
+    );
   }
   return "dev-only-insecure-secret";
 }
