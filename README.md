@@ -11,7 +11,11 @@ Client → Documents → Review → Approve / Request Correction → Audit Histo
 ## Try it
 
 ```bash
-npm install && npx prisma migrate dev && npm run seed && npm run dev
+docker run -d --name obliq-pg \
+  -e POSTGRES_USER=obliq -e POSTGRES_PASSWORD=obliq -e POSTGRES_DB=obliq \
+  -p 5433:5432 postgres:16-alpine
+cp .env.example .env
+npm install && npx prisma migrate deploy && npm run seed && npm run dev
 ```
 
 Sign in as **Rohit** (staff, ABC & Co.). He lands on *Needs your upload* — the documents waiting on him across his assigned clients. Open *Sales Register*, upload a file, then sign out and return as **Aman** (reviewer, same firm): it is now in his *Waiting for your review* queue. Request a correction, sign back in as Rohit to re-upload, then approve it as Aman. Every step appears on the document's timeline.
@@ -27,11 +31,22 @@ To see the tenant boundary: copy any ABC & Co. URL, sign out, sign in as **Priya
 Requires Node 20.9+ (developed on Node 24).
 
 ```bash
+cp .env.example .env
 npm install
-npx prisma migrate dev
+npx prisma migrate deploy
 npm run seed
 npm run dev
 ```
+
+The app uses Postgres. The fastest way to get one locally is Docker:
+
+```bash
+docker run -d --name obliq-pg \
+  -e POSTGRES_USER=obliq -e POSTGRES_PASSWORD=obliq -e POSTGRES_DB=obliq \
+  -p 5433:5432 postgres:16-alpine
+```
+
+Any Postgres works — point `DATABASE_URL` at it.
 
 `npm install` generates the Prisma client via a `postinstall` hook — the generated client is gitignored, so this step is required, not optional.
 
@@ -63,12 +78,12 @@ Next.js App Router  ── Server Components + Server Actions
    ↓
 lib/dal.ts          ── tenant boundary: every query scoped by session.firmId
    ↓
-Prisma 7 + SQLite
+Prisma 7 + Postgres
    ↓
 AuditEvent          ── append-only
 ```
 
-One Next.js app rather than a separate SPA and API: no CORS, no second process, and one `npm install` for a reviewer. SQLite because `dev.db` is a file — nothing to provision.
+One Next.js app rather than a separate SPA and API: no CORS, no second process, and one `npm install` for a reviewer. Postgres because the deployed demo runs on a serverless host, where a SQLite file would not survive a cold start.
 
 ### Data model
 
@@ -209,11 +224,11 @@ Leaving these out is the point. A small working product beats a large unfinished
 - Login is a pick-from-list of seeded users. There are no passwords, by design — the brief excludes production authentication, and the marks are on authorization.
 - Sessions are signed but not encrypted, so the payload is readable by the client. It carries no secrets, and it cannot be edited without invalidating the signature.
 - Sessions do not expire. A real deployment would set a `maxAge` and rotate.
-- SQLite is single-writer. Fine for a prototype, not for concurrent firms in production.
+- The deployed demo seeds a shared database, so anyone visiting sees the same data and can change it.
 
 ## Tech
 
-Next.js 16.3 (App Router) · React 19.2 · TypeScript · Prisma 7.10 · SQLite
+Next.js 16.3 (App Router) · React 19.2 · TypeScript · Prisma 7.10 · Postgres
 
 ## AI Tools Used
 
@@ -236,7 +251,7 @@ project), and it caught a bug in the isolation check itself where a failed
 assertion still exited zero.
 
 All architectural decisions — the DAL chokepoint as the tenant boundary,
-SQLite over Postgres, no real file storage — were reviewed and accepted
+Postgres over SQLite, no real file storage — were reviewed and accepted
 deliberately, and I can explain the reasoning behind each. The trade-offs
 are documented in PLAN.md and in the sections above.
 ```

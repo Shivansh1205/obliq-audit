@@ -1,13 +1,13 @@
 import "dotenv/config";
 
 import { PrismaClient } from "../lib/generated/prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { createAdapter } from "../lib/adapter";
 
 // Drives the full workflow against the database and asserts the audit trail
 // records every transition. Mirrors what the Server Actions do; the actions
 // add the role check and the session lookup on top.
 const prisma = new PrismaClient({
-  adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? "file:./dev.db" }),
+  adapter: createAdapter(),
 });
 
 let failures = 0;

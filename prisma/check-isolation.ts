@@ -3,12 +3,12 @@ import "dotenv/config";
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { PrismaClient } from "../lib/generated/prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { createAdapter } from "../lib/adapter";
 
 // Demonstrates the tenant boundary at the query level: the same lookups the
 // DAL performs, run with the wrong firmId, return nothing.
 const prisma = new PrismaClient({
-  adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? "file:./dev.db" }),
+  adapter: createAdapter(),
 });
 
 let failures = 0;
